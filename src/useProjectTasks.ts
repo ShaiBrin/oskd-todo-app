@@ -2,7 +2,8 @@ import { useCallback } from "react";
 import useSWR from "swr";
 import Mocks, { MockTask } from "./mocks";
 import { Osdk } from "@osdk/client";
-import { ExampleVi48osdkTodoProject, ExampleVi48osdkTodoTask } from "@tutorial-to-do-application/sdk";
+import { exampleVi48CreateOsdkTodoTask, exampleVi48DeleteOsdkTodoTask, ExampleVi48osdkTodoProject, ExampleVi48osdkTodoTask } from "@tutorial-to-do-application/sdk";
+import { client } from "./client";
 
 export function useProjectTasks(project: Osdk.Instance<ExampleVi48osdkTodoProject> | undefined) {
   const { data, isLoading, isValidating, error, mutate } = useSWR<
@@ -21,36 +22,57 @@ export function useProjectTasks(project: Osdk.Instance<ExampleVi48osdkTodoProjec
     },
   );
 
+  function getLocalDate(date: Date) {
+    const offset = date.getTimezoneOffset() * 60 * 1000;
+    return new Date(date.getTime() - offset).toISOString().split("T")[0];
+  }
+
   const createTask: (
     title: string,
-  ) => Promise<MockTask["$primaryKey"] | undefined> = useCallback(
-    async (title) => {
+    description?: string,
+  ) => Promise<Osdk.Instance<ExampleVi48osdkTodoTask>["$primaryKey"] | undefined> = useCallback(
+    async (title, description) => {
       if (project == null) {
         return undefined;
       }
-      // Try to implement this with the Ontology SDK!
-      const id = await Mocks.createTask({
-        title,
-        projectId: project.$primaryKey,
-      });
-      await mutate();
-      return id;
-    },
-    [project, mutate],
-  );
 
-  const deleteTask: (task: MockTask) => Promise<void> = useCallback(
-    async (task) => {
-      if (project == null) {
-        return;
+      const startDate = new Date();
+      const dueDate = new Date();
+      dueDate.setDate(startDate.getDate() + 7);
+      const result = await client(exampleVi48CreateOsdkTodoTask).applyAction(
+        {
+          title,
+          description,
+          start_date: getLocalDate(startDate),
+          due_date: getLocalDate(dueDate),
+          status: "IN PROGRESS",
+          project_id: project.$primaryKey,
+        },
+        { $returnEdits: true },
+      );
+
+      if (result.type !== "edits") {
+        throw new Error("Expected edits to be returned");
       }
-      await sleep(1000);
-      // Try to implement this with the Ontology SDK!
-      await Mocks.deleteTask(task.$primaryKey);
+
       await mutate();
+      return result.addedObjects![0].primaryKey as Osdk.Instance<ExampleVi48osdkTodoTask>["$primaryKey"];
     },
     [project, mutate],
-  );
+);
+
+const deleteTask: (task: Osdk.Instance<ExampleVi48osdkTodoTask>) => Promise<void> = useCallback(
+  async (task) => {
+    if (project == null) {
+      return;
+    }
+    await client(exampleVi48DeleteOsdkTodoTask).applyAction({
+      "osdkTodoTask": task,
+    });
+    await mutate();
+  },
+  [project, mutate],
+);
 
   return {
     tasks: data,
