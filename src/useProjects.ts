@@ -1,14 +1,26 @@
 import { useCallback } from "react";
 import useSWR from "swr";
 import Mocks, { MockProject } from "./mocks";
+import { Osdk, PageResult } from "@osdk/client";
+import { ExampleVi48osdkTodoProject } from "@tutorial-to-do-application/sdk";
+import { client } from "./client";
 
 function useProjects() {
-  const { data, isLoading, isValidating, error, mutate } = useSWR<
-    MockProject[]
-  >("projects", async () => {
-    // Try to implement this with the Ontology SDK!
-    return Mocks.getProjects();
-  });
+  const { data, isLoading, isValidating, error, mutate } = useSWR<Osdk.Instance<ExampleVi48osdkTodoProject>[]>(
+    "projects",
+    async () => {
+        try {
+            const result: PageResult<Osdk.Instance<ExampleVi48osdkTodoProject>> = await client(ExampleVi48osdkTodoProject).fetchPage({
+                $orderBy: {"name": "asc"},
+                $pageSize: 50,
+            });
+            return result.data;
+        } catch (error) {
+            console.error("Failed to fetch projects", error);
+            return [];
+        }
+    },
+);
 
   const createProject: (name: string) => Promise<MockProject["$primaryKey"]> =
     useCallback(
