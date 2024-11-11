@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import useSWR from "swr";
 import Mocks, { MockProject } from "./mocks";
 import { Osdk, PageResult } from "@osdk/client";
-import { ExampleVi48osdkTodoProject } from "@tutorial-to-do-application/sdk";
+import { exampleVi48CreateOsdkTodoProject, exampleVi48DeleteOsdkTodoProject, ExampleVi48osdkTodoProject } from "@tutorial-to-do-application/sdk";
 import { client } from "./client";
 
 function useProjects() {
@@ -22,25 +22,30 @@ function useProjects() {
     },
 );
 
-  const createProject: (name: string) => Promise<MockProject["$primaryKey"]> =
-    useCallback(
-      async (name) => {
-        // Try to implement this with the Ontology SDK!
-        const id = await Mocks.createProject({ name });
+  const createProject: (name: string) => Promise<Osdk.Instance<ExampleVi48osdkTodoProject>["$primaryKey"]> = useCallback(
+    async (name) => {
+        const result = await client(exampleVi48CreateOsdkTodoProject).applyAction(
+            { name, budget: 50 },
+            { $returnEdits: true },
+        );
+      if (result.type !== "edits") {
+            throw new Error("Expected edits to be returned");
+        }
         await mutate();
-        return id;
-      },
-      [mutate],
-    );
-
-  const deleteProject: (project: MockProject) => Promise<void> = useCallback(
-    async (project) => {
-      // Try to implement this with the Ontology SDK!
-      await Mocks.deleteProject(project.$primaryKey);
-      await mutate();
+        return result.addedObjects![0].primaryKey as Osdk.Instance<ExampleVi48osdkTodoProject>["$primaryKey"];
     },
     [mutate],
   );
+
+  const deleteProject: (project: Osdk.Instance<ExampleVi48osdkTodoProject>) => Promise<void> = useCallback(
+    async (project) => {
+      await client(exampleVi48DeleteOsdkTodoProject).applyAction({
+        "osdkTodoProject": project,
+      });
+      await mutate();
+    },
+    [mutate],
+);
 
   return {
     projects: data,
