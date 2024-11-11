@@ -1,16 +1,23 @@
 import { useCallback } from "react";
 import useSWR from "swr";
-import Mocks, { MockProject, MockTask } from "./mocks";
+import Mocks, { MockTask } from "./mocks";
+import { Osdk } from "@osdk/client";
+import { ExampleVi48osdkTodoProject, ExampleVi48osdkTodoTask } from "@tutorial-to-do-application/sdk";
 
-export function useProjectTasks(project: MockProject | undefined) {
-  const { data, isLoading, isValidating, error, mutate } = useSWR<MockTask[]>(
+export function useProjectTasks(project: Osdk.Instance<ExampleVi48osdkTodoProject> | undefined) {
+  const { data, isLoading, isValidating, error, mutate } = useSWR<
+    Osdk.Instance<ExampleVi48osdkTodoTask>[]
+  >(
     project != null ? `projects/${project.id}/tasks` : null,
-    // Try to implement this with the Ontology SDK!
     async () => {
       if (project == null) {
         return [];
       }
-      return project.tasks;
+      const tasks = [];
+      for await (const task of project.$link.exampleVi48OsdkTodoTasks.asyncIter()) {
+          tasks.push(task);
+      }
+      return tasks;
     },
   );
 
